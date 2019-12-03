@@ -22,3 +22,5 @@ mask2polygon.py converts the masks into contour first and then from contour it d
 
 
 Douglas_Peucker Algorithm ![Algorithm](https://commons.wikimedia.org/wiki/File:RDP,_varying_epsilon.gif#/media/File:RDP,_varying_epsilon.gif)
+
+[[https://commons.wikimedia.org/wiki/File:RDP,_varying_epsilon.gif#/media/File:RDP,_varying_epsilon.gif]]
