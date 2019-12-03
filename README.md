@@ -19,11 +19,10 @@ We separated the detected masks and drew contour from the mask. From the contour
 
 ![Ramer-Douglas_Peucker](assets/RDP,_varying_epsilon.gif)
 
-mask2polygon.py converts the masks into contour first and then from contour it detects the polygon using the Ramer-Douglas-Pecuker algorithm.
 
-![Polygon_Approximation](assets/20191203T1117_w136.png)
+![Contour2polyline](assets/contour2polyline.png)
+
+![Contour2polyline](assets/contour2polylines.png)
 
 
-Douglas_Peucker Algorithm ![Algorithm](https://commons.wikimedia.org/wiki/File:RDP,_varying_epsilon.gif#/media/File:RDP,_varying_epsilon.gif)
-
-[[https://commons.wikimedia.org/wiki/File:RDP,_varying_epsilon.gif#/media/File:RDP,_varying_epsilon.gif]]
+![Mask2polyline](assets/20191203T1117_w136.png)
