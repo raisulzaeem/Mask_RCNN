@@ -2,7 +2,7 @@
 
 This is an implementation of [Mask R-CNN](https://arxiv.org/abs/1703.06870) on Python 3, Keras, and TensorFlow. The model generates bounding boxes and segmentation masks for each instance of an object in the image. It's based on Feature Pyramid Network (FPN) and a ResNet101 backbone.
 
-![Instance Segmentation Sample](assets/20191202T1256_w56.png)
+![Instance Segmentation Sample](assets/20191203T1116_w136.png)
 
 The repository includes:
 * Source code of Mask R-CNN built on FPN and ResNet101.
@@ -18,4 +18,4 @@ The repository includes:
 We have separated the masks and saved within masks directory. 
 mask2polygon.py converts the masks into contour first and then from contour it detects the polygon using the Ramer-Douglas-Pecuker algorithm.
 
-![Polygon_Approximation](assets/20191202T1537_w56.png)
+![Polygon_Approximation](assets/20191203T1117_w136.png)
