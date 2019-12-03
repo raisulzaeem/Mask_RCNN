@@ -15,7 +15,10 @@ The repository includes:
 
 # Polygon approximation from the detected mask
 
-We have separated the masks and saved within masks directory. 
+We separated the detected masks and drew contour from the mask. From the contour we obtained the polylines using the [Ramer-Douglas-Peucker](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) algorithm.
+
+![Ramer-Douglas_Peucker](assets/RDP,_varying_epsilon.gif)
+
 mask2polygon.py converts the masks into contour first and then from contour it detects the polygon using the Ramer-Douglas-Pecuker algorithm.
 
 ![Polygon_Approximation](assets/20191203T1117_w136.png)
