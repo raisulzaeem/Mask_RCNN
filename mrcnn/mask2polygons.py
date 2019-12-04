@@ -28,8 +28,29 @@ class Mask:
     def drawPolygon(self, image):
         """This method draws the polygon(from the mask) in the given image
         Note: The image and the mask should be of the same size"""
-
         cv.polylines(image, [self.polygon_points], 1, (255, 255, 0), 10)
+
+    def crop_image(self, image):
+
+        x_points = self.polygon_points[:, 0]
+        y_points = self.polygon_points[:, 1]
+
+        col_max = max(x_points)
+        row_max = max(y_points)
+
+        col_min = min(x_points)
+        row_min = min(y_points)
+
+        offset = int((row_max - row_min)/10)
+
+        col_max += offset
+        row_max += offset
+        self.col_min = max(0, col_min-offset)   # if col_min/row_min < 0, cropping error.
+        self.row_min = max(0, row_min -offset)  # To uncrop the images in crop2original_coord method
+
+        cropped_image = image[self.row_min:row_max, self.col_min:col_max, :]
+        # copy_image = cropped_image.copy() >>> When necessary!
+        return cropped_image
 
 
 def order_points(pts):
@@ -44,16 +65,110 @@ def order_points(pts):
     summe = pts.sum(axis=1)
     rect[0] = pts[np.argmin(summe)]
     rect[2] = pts[np.argmax(summe)]
- 
-	# now, compute the difference between the points, the
+    
+    # now, compute the difference between the points, the
 	# top-right point will have the smallest difference,
 	# whereas the bottom-left will have the largest difference
+    
     diff = np.diff(pts, axis=1)
     rect[1] = pts[np.argmin(diff)]
     rect[3] = pts[np.argmax(diff)]
- 
-	# return the ordered coordinates
+    # return the ordered coordinates
     return rect
+
+
+def hough_line_transformation(image):
+# Create a CLAHE object for histogram equalization. 
+#(CLAHE: Contrast Limited Adaptive Histogram Equalization)"""
+
+    if len(image.shape) == 3:
+        image = cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+
+    clahe = cv.createCLAHE(clipLimit=1.0)
+    image_he = clahe.apply(image)
+
+
+    # We haven't set a constant kernel size. It depends on the size of the image.
+    # In our case we got better result when we divided the no of pixels by 150.
+
+    k = int((max(image.shape)/150))
+
+    # Kernel size should be an odd integer
+
+    if k <= 1:
+        kernel_size = 3
+        k = 1
+    elif  k%2 == 1:
+        kernel_size = k
+    else:
+        kernel_size = k+1
+
+    # image_blur = cv.medianBlur(image_he,kernel_size)
+
+    # Applying Binary inverse adaptive threshold, to keep the forground in white and background in black. 
+    # Here we also used the kernel size from the size of the image
+
+    image_thresh = cv.adaptiveThreshold(image_he, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, kernel_size, 4)
+
+    # Now we will use Hough Transformation to get the lines in the image in 'Hesse Normal Form' (rho,theta).
+    # Output vector of lines. Each line is represented by a 2 or 3 element vector (ρ,θ) or (ρ,θ,votes) . 
+    # ρ is the distance from the coordinate origin (0,0) (top-left corner of the image). θ is the line rotation angle in radians.
+
+    hough_lines = cv.HoughLines(image_thresh,1,np.pi/180,k*70)
+
+    return hough_lines,image_thresh
+
+def hough_lines_show(hough_lines, img):
+
+    for line in hough_lines:
+        rho, theta = line[0]
+        # Drawing the lines in the image: 
+        a = np.cos(theta)
+        b = np.sin(theta)
+        x0 = a*rho
+        y0 = b*rho
+        x1 = int(x0 + 2000*(-b))
+        y1 = int(y0 + 2000*(a))
+        x2 = int(x0 - 2000*(-b))
+        y2 = int(y0 - 2000*(a))
+        cv.line(img,(x1,y1),(x2,y2),(0,0,255),2)
+    plt.imshow(img)
+    plt.show()
+
+
+def points2parametric(points):
+    """ Takes end points of lines and calculates the
+    parametric representation(ρ,θ) of each line.
+    Points = array([[x1,y1],[x2,y2],[x3,y3],[x4,y4]])
+    Returns [[ρ1,θ1],[ρ2,θ2],[ρ3,θ3],[ρ4,θ4]]
+    """
+    points_ext = np.append(points, [points[0]], axis=0)
+    rho_theta = []
+
+
+    for i in range(len(points_ext)-1):
+        x1 = points_ext[i][0]
+        y1 = points_ext[i][1]
+        x2 = points_ext[i+1][0]
+        y2 = points_ext[i+1][1]
+
+        if y1 == y2:
+            theta = np.pi/2
+        else:
+            theta = np.arctan((x2-x1)/(y1-y2))
+        
+        rho = x1 * np.cos(theta) + y1 * np.sin(theta)
+        # We want our theta in the range from >> 0 to pi(3.14159) <<
+        # Rho can be negative.
+        if theta < 0:
+            theta = np.pi + theta
+            rho = -rho
+
+        
+
+        rho_theta.append([rho, theta])
+    
+    return rho_theta
 
 if __name__ == "__main__":
     
@@ -61,16 +176,34 @@ if __name__ == "__main__":
     mask_dict = {}
     my_img = cv.imread('dataset/test/20190702_105926.jpg')
     my_img = cv.cvtColor(my_img,cv.COLOR_BGR2RGB)
+    zero_img = np.zeros(my_img.shape[:3],dtype=np.int32)
 
     for name in masknames:
 
         mask = cv.imread('masks/'+name, 0)
         mask_dict[name] = Mask(mask)
+        mask_image = mask_dict[name].mask
+
+        image_cropped = mask_dict[name].crop_image(my_img)
+        houghlines, img = hough_line_transformation(image_cropped)
+        hough_lines_show(houghlines, image_cropped)
+
+        # convert polygon points into the crop coordinate
+        polygon_pts = mask_dict[name].polygon_points - [mask_dict[name].col_min, mask_dict[name].row_min]
+        houghlines_mask = points2parametric(polygon_pts)
+
+
+
+
         mask_dict[name].drawContour(my_img)
         mask_dict[name].drawPolygon(my_img)
+        plt.imshow(my_img)
+        plt.show()
 
-    plt.imshow(my_img)
-    plt.show()
+
+
+
+
 
 
 
