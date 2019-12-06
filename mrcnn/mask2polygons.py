@@ -28,7 +28,7 @@ class Mask:
     def drawPolygon(self, image):
         """This method draws the polygon(from the mask) in the given image
         Note: The image and the mask should be of the same size"""
-        cv.polylines(image, [self.polygon_points], 1, (255, 255, 0), 10)
+        cv.polylines(image, [self.polygon_points], 1, (255, 255, 0), 3)
 
     def crop_image(self, image):
 
@@ -158,23 +158,113 @@ def points2parametric(points):
             theta = np.arctan((x2-x1)/(y1-y2))
         
         rho = x1 * np.cos(theta) + y1 * np.sin(theta)
-        # We want our theta in the range from >> 0 to pi(3.14159) <<
-        # Rho can be negative.
+        # We want our Rho to be positive. 
+        # Theta is in the range from >> 0 to 2*pi <<
         if theta < 0:
             theta = np.pi + theta
             rho = -rho
-
         
-
+        if rho < 0:
+            theta = np.pi + theta
+            rho = -rho
+        
         rho_theta.append([rho, theta])
     
+    rho_theta = np.array(rho_theta)[:, np.newaxis]
+    
     return rho_theta
+
+def scale_rho_theta(houghlines):
+    
+    rho_theta = np.array([[[-rho, theta+np.pi]] if rho < 0 else 
+                         [[rho, theta]] for [[rho, theta]] in houghlines])
+    
+    return rho_theta
+
+
+def hough_lines_split(lines):
+    
+    vertical_lines = [] # A list to separate the vertical lines with small theta(<30) from hough_lines
+
+    horizontal_lines = [] # A list to separate the horizontal lines with large theta(45 to 135) from hough_lines
+
+
+    for line in lines:
+        rho, theta = line[0]
+
+        if 0.7854 < theta < 2.356 or 3.927 < theta < 5.4978:
+            horizontal_lines.append(line[0])
+        else:
+            vertical_lines.append(line[0])
+    
+    return horizontal_lines, vertical_lines
+
+def combine_mask_houghline(masklines, _houghlines, norm):
+    best_lines = []
+    for mline in masklines:
+        print("\n mline: ", mline)
+        best_line = mline
+        for hline in _houghlines:
+            print("hline: ", hline)
+            mse = (((mline/norm) - (hline/norm))**2).mean()
+            print("mse: ", mse)
+            if mse < 0.0005:
+                best_line = hline
+        
+        best_lines.append(best_line)
+
+    return best_lines
+
+def lines2corners(small_theta_points,large_theta_points):
+
+    # Sorting the points on rho, ascending
+
+    small_theta_points_sorted = sorted(small_theta_points, key=lambda x: x[0])
+    large_theta_points_sorted = sorted(large_theta_points, key=lambda x: x[0])
+
+    # Taking only the two points with maximum and minimum values of rho from each theta group
+
+    horizontal_lines = [small_theta_points_sorted[0], small_theta_points_sorted[-1]]
+    vertical_lines = [large_theta_points_sorted[0], large_theta_points_sorted[-1]]
+
+    coordinates= [] # A list to store the intersecting coordinates
+
+    for i in horizontal_lines:
+        for j in vertical_lines:
+
+            rho1 = i[0]
+            theta1 = i[1]
+
+            rho2 = j[0]
+            theta2 = j[1]
+
+            coeff = np.array([[np.cos(theta1), np.sin(theta1)],\
+                            [np.cos(theta2), np.sin(theta2)]])
+
+            rhos = np.array([rho1, rho2])
+            x = np.linalg.solve(coeff,rhos)
+
+            coordinates.append(x)
+
+
+
+    # print(Coordinates)
+
+    coordinates = np.array(coordinates)
+
+    ordered_coordinates = order_points(coordinates)
+
+    ordered_coordinates = np.int32([ordered_coordinates])
+
+    return ordered_coordinates
+
+
 
 if __name__ == "__main__":
     
     masknames = os.listdir('masks')
     mask_dict = {}
-    my_img = cv.imread('dataset/test/20190702_105926.jpg')
+    my_img = cv.imread('dataset/test/20190702_105415.jpg')
     my_img = cv.cvtColor(my_img,cv.COLOR_BGR2RGB)
     zero_img = np.zeros(my_img.shape[:3],dtype=np.int32)
 
@@ -184,21 +274,35 @@ if __name__ == "__main__":
         mask_dict[name] = Mask(mask)
         mask_image = mask_dict[name].mask
 
+        print("\n#######\nMaskname: ", name)
+
         image_cropped = mask_dict[name].crop_image(my_img)
         houghlines, img = hough_line_transformation(image_cropped)
-        hough_lines_show(houghlines, image_cropped)
+        # hough_lines_show(houghlines, image_cropped)
+        houghlines = scale_rho_theta(houghlines)
 
         # convert polygon points into the crop coordinate
         polygon_pts = mask_dict[name].polygon_points - [mask_dict[name].col_min, mask_dict[name].row_min]
-        houghlines_mask = points2parametric(polygon_pts)
+        mask_houghlines = points2parametric(polygon_pts)
 
+        hline_vertical, hline_horizontal = hough_lines_split(houghlines)
+        mline_vertical, mline_horizontal = hough_lines_split(mask_houghlines)
 
+        norm_parameter = np.array([max(image_cropped.shape), 2*np.pi])
+        vertical_lines = combine_mask_houghline(mline_vertical, hline_vertical, norm_parameter)
+        horizontal_lines = combine_mask_houghline(mline_horizontal, hline_vertical, norm_parameter)
 
+        corners = lines2corners(vertical_lines, horizontal_lines)
+
+        corners = corners + [mask_dict[name].col_min, mask_dict[name].row_min]
+
+        cv.polylines(my_img, corners, True, (255, 0, 0), thickness=5)
 
         mask_dict[name].drawContour(my_img)
         mask_dict[name].drawPolygon(my_img)
-        plt.imshow(my_img)
-        plt.show()
+
+plt.imshow(my_img)
+plt.show()
 
 
 
