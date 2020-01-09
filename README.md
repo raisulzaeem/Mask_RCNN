@@ -9,17 +9,17 @@ The repository includes:
 * Training code for swapbody dataset. (swapbody.py)
 * Source code to approximate the edges of the swapbody.
 
-# Preparing the Dataset
+## Preparing the Dataset
 
-About 2100 swapbody images were available to us. The images contained full swapbodies from different distances at different angles. Among them we have selected 600 images and annotated them into two classes(1.back & 2.side) using Labelme.
+To create the dataset we have captured about 2500 swapbody images from different distances at different angles. Among them we have selected 600 images and annotated them into two classes(1.back & 2.side) using Labelme.
 
 ![Labeled Images](assets/132.jpg)
 
-# Training and Inference
+## Training and Inference
 
 We have trained the model on our swapbody dataset. After training we have implemented the trained model to get the masks for the swapbodies from our test images. The model is detecting the swapbody sides accurately and providing segmented image instances as masks. Although the masks provide give us the pixelwise location the containers faces, it is not really convenient to use the masks directly to obtain the exact edges.
 
-<img src="assets/Figure_1.png" width="425"/> <img src="(assets/20191203T1116_w136.png" width="425"/> 
+<img src="assets/Figure_1.png" width="425"/> <img src="assets/20191203T1116_w136.png" width="425"/> 
 
 ## Polygon approximation from the detected mask
 
@@ -42,3 +42,8 @@ At the end with the help of the polygon corner points we took the nearest lines 
 ![Edge Approximation](assets/20200109T1130_w0229.png)
 
 ![Final](assets/20200109T1128_w0229.png)
+
+## Next Challenge
+
+Determine the distance and the orientation or the pose of the swapbody with respect to camera coordinate system.
+Finger crossed!
