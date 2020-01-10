@@ -199,21 +199,35 @@ def hough_lines_split(lines):
     
     return horizontal_lines, vertical_lines
 
-def combine_mask_houghline(masklines, _houghlines, norm):
-    best_lines = []
-    for mline in masklines:
-        print("\n mline: ", mline)
-        best_line = mline
-        for hline in _houghlines:
-            print("hline: ", hline)
-            mse = (((mline/norm) - (hline/norm))**2).mean()
-            print("mse: ", mse)
-            if mse < 0.0005:
-                best_line = hline
-        
-        best_lines.append(best_line)
+def line_optimizer(points, houghlines):
+    """
+    Input: points = array([[x1,y1], [x2,y2]])
+           houghlines = [ array([ρ1,θ1]), array([ρ2,θ2]), ..... ]
 
-    return best_lines
+    Output: rho_theta_best = array([ρ,θ])
+    """
+    
+    mse_update = 5000
+    rho_theta_best = points2parametric(points)[0] # function Output : array([[[ρ,θ]]])
+
+    for line in houghlines:
+
+        if len(line) == 0:
+            break
+
+        rho = line[0]
+        theta = line[1]
+        
+        distance1 = points[0,0]*np.cos(theta) + points[0,1]*np.sin(theta) -rho
+        distance2 = points[1,0]*np.cos(theta) + points[1,1]*np.sin(theta) -rho
+
+        mse = (distance1**2 + distance2**2)/2
+
+        if mse < mse_update:
+            rho_theta_best = np.array([line])
+            mse_update = mse
+
+    return rho_theta_best[0]
 
 def lines2corners(small_theta_points,large_theta_points):
 
@@ -283,14 +297,20 @@ if __name__ == "__main__":
 
         # convert polygon points into the crop coordinate
         polygon_pts = mask_dict[name].polygon_points - [mask_dict[name].col_min, mask_dict[name].row_min]
-        mask_houghlines = points2parametric(polygon_pts)
 
         hline_vertical, hline_horizontal = hough_lines_split(houghlines)
-        mline_vertical, mline_horizontal = hough_lines_split(mask_houghlines)
+        horizontal_line_points = [polygon_pts[[0,1],:], polygon_pts[[2,3],:]]
+        vertical_line_points = [polygon_pts[[1,2],:], polygon_pts[[3,0],:]]
 
-        norm_parameter = np.array([max(image_cropped.shape), 2*np.pi])
-        vertical_lines = combine_mask_houghline(mline_vertical, hline_vertical, norm_parameter)
-        horizontal_lines = combine_mask_houghline(mline_horizontal, hline_vertical, norm_parameter)
+        best_hline1 = line_optimizer(horizontal_line_points[0],hline_horizontal)
+        best_hline2 = line_optimizer(horizontal_line_points[1],hline_horizontal)
+
+        best_vline1 = line_optimizer(vertical_line_points[0],hline_vertical)
+        best_vline2 = line_optimizer(vertical_line_points[1],hline_vertical)
+        
+        vertical_lines = [best_vline1, best_vline2]
+        horizontal_lines = [best_hline1, best_hline2]
+        
 
         corners = lines2corners(vertical_lines, horizontal_lines)
 
