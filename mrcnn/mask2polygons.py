@@ -31,6 +31,8 @@ class Mask:
         cv.polylines(image, [self.polygon_points], 1, (255, 255, 0), 3)
 
     def crop_image(self, image):
+	""" From the polygon corner points, we take the maximum and minimum values of x coordinates and y coordinates.
+	Then crop the image from the point (x_min, y_min) to (x_max, y_max) with 10% offset outside in every direction""""
 
         x_points = self.polygon_points[:, 0]
         y_points = self.polygon_points[:, 1]
@@ -54,10 +56,11 @@ class Mask:
 
 
 def order_points(pts):
-	# initialzie a list of coordinates that will be ordered
-	# such that the first entry in the list is the top-left,
-	# the second entry is the top-right, the third is the
-	# bottom-right, and the fourth is the bottom-left
+	"""initialzie a list of coordinates that will be ordered
+	such that the first entry in the list is the top-left,
+	the second entry is the top-right, the third is the
+	bottom-right, and the fourth is the bottom-left"""
+    
     rect = np.zeros((4, 2), dtype="float32")
  
 	# the top-left point will have the smallest sum, whereas
@@ -78,8 +81,8 @@ def order_points(pts):
 
 
 def hough_line_transformation(image):
-# Create a CLAHE object for histogram equalization. 
-#(CLAHE: Contrast Limited Adaptive Histogram Equalization)"""
+    """ Create a CLAHE object for histogram equalization. 
+    (CLAHE: Contrast Limited Adaptive Histogram Equalization)"""
 
     if len(image.shape) == 3:
         image = cv.cvtColor(image,cv.COLOR_BGR2GRAY)
@@ -200,7 +203,9 @@ def hough_lines_split(lines):
     return horizontal_lines, vertical_lines
 
 def line_optimizer(points, houghlines):
-    """
+    """ Takes two endpoints of a line and parameters for houghlines.
+        Computes the distances from the endpoints to an specific houghline
+	and takes the MSE. Returns the best matching houghline.
     Input: points = array([[x1,y1], [x2,y2]])
            houghlines = [ array([ρ1,θ1]), array([ρ2,θ2]), ..... ]
 
