@@ -281,7 +281,7 @@ def lines2corners(small_theta_points,large_theta_points):
 
 def calculate_distance(corners, swapbody_height, focal_length):
 
-    average_height = (corners[3,1]+corners[2,1]) - (corners[0,1]+corners[1,1])
+    average_height = (corners[3,1]+corners[2,1])/2 - (corners[0,1]+corners[1,1])/2
     mid_point = corners[2]/2 + corners[3]/2
     distance = (focal_length*swapbody_height)/average_height
     return distance, mid_point
