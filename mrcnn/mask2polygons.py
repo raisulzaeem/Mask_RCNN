@@ -6,9 +6,15 @@ from matplotlib import pyplot as plt
 
 
 class Mask:
+	"""This Class defines the masks' properties (mostly in __init__ method) 
+        and methods to calculate polygon from the mask and calculates simplified
+        distance from the camera center."""
 
     def __init__(self, input_mask):
-        image = input_mask
+	 """For every mask, we compute the contours from the mask, 
+         and Calculate the polygon points based on the contour"""
+        
+	image = input_mask
         if len(input_mask.shape) == 3:
             image = cv.cvtColor(image,cv.COLOR_BGR2GRAY)
         self.contour, _ = cv.findContours(image, 0, 3) # Get contours from mask
@@ -55,6 +61,9 @@ class Mask:
         return cropped_image
 
     def final_polygons(self, my_img):
+		
+	"""This method calculates the APPROXIMATE EDGES of swapbody combining the polylines 
+        obtained from the contour and Houghline generated from the real image"""
 
         image_cropped = self.crop_image(my_img)
         main_houghlines, img = hough_line_transformation(image_cropped)
@@ -94,6 +103,13 @@ class Mask:
         return my_img
 
     def calculate_distance(self, swapbody_height, focal_length):
+	"""This method calculates the simplified distance between the camera center and 
+        bottom middle point of the swapbody. 
+	We have ignored the extrinsic parameters
+        The formula is:   Distance = (f*H)/y 
+        where, f = focal length * scaling_factor = focal_length in pixels (assuming scaling factor to be constant)
+               H = Swapbody height
+               y = average height of the swapbody """
 
         corners = self.corners[0]
         average_height = (corners[3,1]+corners[2,1])/2 - (corners[0,1]+corners[1,1])/2
@@ -104,6 +120,8 @@ class Mask:
 
 
     def show_distance(self, img, swapbody_height, focal_length):
+	
+	"""Visual presentation of the distance in the Image"""
 
         h,w = img.shape[0:2]
         self.calculate_distance(swapbody_height, focal_length)
