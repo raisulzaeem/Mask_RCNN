@@ -54,7 +54,70 @@ class Mask:
         # copy_image = cropped_image.copy() >>> When necessary!
         return cropped_image
 
+    def final_polygons(self, my_img):
 
+        image_cropped = self.crop_image(my_img)
+        main_houghlines, img = hough_line_transformation(image_cropped)
+        # hough_lines_show(houghlines, image_cropped)
+        houghlines = scale_rho_theta(main_houghlines)
+
+        # convert polygon points into the crop coordinate
+        polygon_pts = self.polygon_points - [self.col_min,
+                                                        self.row_min]
+        mask_houghlines = points2parametric(polygon_pts)
+
+        hline_horizontal, hline_vertical = hough_lines_split(houghlines)
+        mline_horizontal, mline_vertical = hough_lines_split(mask_houghlines)
+        
+        horizontal_line_points = [polygon_pts[[0,1],:], polygon_pts[[2,3],:]]
+        vertical_line_points = [polygon_pts[[1,2],:], polygon_pts[[3,0],:]]
+
+        best_hline1 = line_optimizer(horizontal_line_points[0],hline_horizontal)
+        best_hline2 = line_optimizer(horizontal_line_points[1],hline_horizontal)
+
+        best_vline1 = line_optimizer(vertical_line_points[0],hline_vertical)
+        best_vline2 = line_optimizer(vertical_line_points[1],hline_vertical)
+        
+        vertical_lines = [best_vline1, best_vline2]
+        horizontal_lines = [best_hline1, best_hline2]
+        corners = lines2corners(vertical_lines, horizontal_lines)
+
+        corners = corners + [self.col_min, self.row_min]
+        self.corners = corners
+        # hough_lines_show(houghlines, image_cropped)
+        cv.polylines(my_img, corners, True, (255, 0, 55), thickness=5)
+
+        # self.draw_contour(my_img)
+        
+        self.draw_polygon(my_img)
+
+        return my_img
+
+    def calculate_distance(self, swapbody_height, focal_length):
+
+        corners = self.corners[0]
+        average_height = (corners[3,1]+corners[2,1])/2 - (corners[0,1]+corners[1,1])/2
+        [x,y] = corners[2]/2 + corners[3]/2
+        distance = (focal_length*swapbody_height)/average_height
+        self.mid_point = (int(x), int(y))
+        self.distance = distance
+
+
+    def show_distance(self, img, swapbody_height, focal_length):
+
+        h,w = img.shape[0:2]
+        self.calculate_distance(swapbody_height, focal_length)
+        font = cv.FONT_HERSHEY_SIMPLEX
+        bottom_mid = (int(w/2),h)
+        cv.line(img, bottom_mid, self.mid_point, (201, 255, 39), 5)
+        cv.putText(img, "{:.2f}".format(self.distance), self.mid_point, font, 2, (201,255,39), 4, cv.LINE_AA)
+
+
+
+	
+##########----------- Utility Functions -----------##########
+	
+	
 def order_points(pts):
 	"""initialzie a list of coordinates that will be ordered
 	such that the first entry in the list is the top-left,
@@ -291,68 +354,21 @@ if __name__ == "__main__":
     
     masknames = os.listdir('masks')
     mask_dict = {}
-    my_img = cv.imread('dataset/test/669.jpg')
+    my_img = cv.imread('dataset/test/20190702_105331.jpg') 
     my_img = cv.cvtColor(my_img, cv.COLOR_BGR2RGB)
-    h, w, c = my_img.shape
-    zero_img = np.zeros((h,w,c), dtype=np.int32)
-    focal_length = 2940 # in pixels
+    focal_length = 2940 # in pixels = f*k
     swapbody_height = 2.5 # in meters
 
 
     for name in masknames:
-
-        mask = cv.imread('masks/'+name, 0)
-        mask_dict[name] = Mask(mask)
-        mask_image = mask_dict[name].mask
-
-        image_cropped = mask_dict[name].crop_image(my_img)
-        main_houghlines, img = hough_line_transformation(image_cropped)
-        # hough_lines_show(houghlines, image_cropped)
-        houghlines = scale_rho_theta(main_houghlines)
-
-        # convert polygon points into the crop coordinate
-        polygon_pts = mask_dict[name].polygon_points - [mask_dict[name].col_min,
-                                                        mask_dict[name].row_min]
-        mask_houghlines = points2parametric(polygon_pts)
-
-        hline_horizontal, hline_vertical = hough_lines_split(houghlines)
-        mline_horizontal, mline_vertical = hough_lines_split(mask_houghlines)
         
-        horizontal_line_points = [polygon_pts[[0,1],:], polygon_pts[[2,3],:]]
-        vertical_line_points = [polygon_pts[[1,2],:], polygon_pts[[3,0],:]]
-
-        best_hline1 = line_optimizer(horizontal_line_points[0],hline_horizontal)
-        best_hline2 = line_optimizer(horizontal_line_points[1],hline_horizontal)
-
-        best_vline1 = line_optimizer(vertical_line_points[0],hline_vertical)
-        best_vline2 = line_optimizer(vertical_line_points[1],hline_vertical)
-        
-        vertical_lines = [best_vline1, best_vline2]
-        horizontal_lines = [best_hline1, best_hline2]
-        corners = lines2corners(vertical_lines, horizontal_lines)
-
-        corners = corners + [mask_dict[name].col_min, mask_dict[name].row_min]
-        mask_dict[name].corners = corners
-        hough_lines_show(houghlines, image_cropped)
-        cv.polylines(my_img, corners, True, (255, 0, 55), thickness=5)
-
-        # mask_dict[name].draw_contour(my_img)
-        
-        mask_dict[name].draw_polygon(my_img)
+        my_mask = cv.imread('masks/'+name, 0)
+        mask_dict[name] = Mask(my_mask)
+        polyg_img = mask_dict[name].final_polygons(my_img)       
+        mask_dict[name].show_distance(my_img, swapbody_height, focal_length)
     
     plt.imshow(my_img)
-
-    for name in masknames:
-        
-        distance, mid_point = calculate_distance(mask_dict[name].corners[0], swapbody_height, focal_length)
-
-        [dx, dy] = mid_point - [w/2, h]
-
-        plt.arrow(w/2, h, dx, dy)
-        text_location = (w/2+dx, h+dy)
-        plt.text(text_location[0], text_location[1], "{:.2f}".format(distance), fontsize=15)
     plt.show()
-
 
 
 
